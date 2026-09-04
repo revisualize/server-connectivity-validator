@@ -37,7 +37,7 @@
 #   VALIDATOR_TARGET_HOST         storage01.example.net
 #   VALIDATOR_HTTP_URL            http://storage01.example.net:8080/health
 #   VALIDATOR_NFS_SERVER          storage01.example.net
-#   VALIDATOR_NFS_EXPORT          /ifs/data/export
+#   VALIDATOR_NFS_EXPORT          /export/data
 #   VALIDATOR_SMB_SERVER          storage01.example.net
 #   VALIDATOR_SMB_SHARE           data
 #   VALIDATOR_SMB_CREDENTIALS     /etc/server_connectivity_validator/smb_credentials
@@ -60,7 +60,7 @@ set -u
 target_host="${VALIDATOR_TARGET_HOST:-storage01.example.net}"
 http_endpoint_url="${VALIDATOR_HTTP_URL:-http://storage01.example.net:8080/health}"
 nfs_server="${VALIDATOR_NFS_SERVER:-storage01.example.net}"
-nfs_export_path="${VALIDATOR_NFS_EXPORT:-/ifs/data/export}"
+nfs_export_path="${VALIDATOR_NFS_EXPORT:-/export/data}"
 smb_server="${VALIDATOR_SMB_SERVER:-storage01.example.net}"
 smb_share_name="${VALIDATOR_SMB_SHARE:-data}"
 smb_credentials_file="${VALIDATOR_SMB_CREDENTIALS:-/etc/server_connectivity_validator/smb_credentials}"

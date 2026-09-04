@@ -46,7 +46,7 @@ Every setting is an environment variable.
 |----------|---------|
 | `VALIDATOR_TARGET_HOST` | `storage01.example.net` |
 | `VALIDATOR_HTTP_URL` | `http://storage01.example.net:8080/health` |
-| `VALIDATOR_NFS_SERVER` / `VALIDATOR_NFS_EXPORT` | `storage01.example.net` / `/ifs/data/export` |
+| `VALIDATOR_NFS_SERVER` / `VALIDATOR_NFS_EXPORT` | `storage01.example.net` / `/export/data` |
 | `VALIDATOR_SMB_SERVER` / `VALIDATOR_SMB_SHARE` | `storage01.example.net` / `data` |
 | `VALIDATOR_FAILURE_THRESHOLD` | `3` |
 | `VALIDATOR_TIMEOUT` | `5` |
