@@ -1,0 +1,184 @@
+# Path:     .github/workflows/bash-compat.yml
+# Project:  revisualized.com public repositories (github.com/revisualize)
+# Revision: 1
+# Updated:  2026-09-29
+#
+# Purpose:  Tests the Bash version claim each README makes. The README's
+#           Requirements section states a floor as "Bash X.Y or newer"; this
+#           workflow builds every Bash release from 4.2 to 5.3 from source,
+#           puts it first on PATH, and runs the repository's own test entry
+#           point under it:
+#
+#               bash test/run_all_tests.sh;
+#
+#           A release below the stated floor is reported as out of scope and
+#           not run. Every release at or above it must pass. Byte-identical in
+#           every repository that carries it.
+#
+# Contract: 1. README.md must state "Bash X.Y or newer". A README that states
+#              no floor fails every leg, because there is no claim to test.
+#           2. Each leg confirms that the Bash it built is the one answering
+#              before it runs anything, so a leg cannot pass on the runner's
+#              own Bash by accident.
+#           3. The harness contract from ci.yml applies unchanged: it must
+#              report "<label><TAB><count>" lines to TESTS_EXECUTED_FILE, and
+#              a total of zero fails the leg.
+#
+# Source:   Bash is built from the release commits on
+#           github.com/tianon/mirror-bash, a mirror of the GNU Savannah
+#           repository. Each commit is pinned by its full hash and checked
+#           after the fetch, so the mirror cannot substitute other source.
+#           The compiler flags let pre-C99 Bash sources (4.2 to 5.0) build on
+#           the runner's GCC 13 without changing what they compile to.
+#           Releases are the .0 tags, without later patch levels. The floor
+#           claim is about the oldest Bash a reader may have, and the .0
+#           release is the oldest of each line.
+#
+# Verified: All nine repositories' harnesses were run under all seven builds
+#           on 2026-09-29, with the same build commands, before release.
+
+name: bash-compat
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  bash-compat:
+    name: bash ${{ matrix.bash-version }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - bash-version: "4.2"
+            bash-commit: 495aee441b75276e38c75694ccb455bb6463fdb9
+          - bash-version: "4.3"
+            bash-commit: ac50fbac377e32b98d2de396f016ea81e8ee9961
+          - bash-version: "4.4"
+            bash-commit: a0c0a00fc419b7bc08202a79134fcd5bc0427071
+          - bash-version: "5.0"
+            bash-commit: d233b485e83c3a784b803fb894280773f16f2deb
+          - bash-version: "5.1"
+            bash-commit: 8868edaf2250e09c4e9a1c75ffe3274f28f38581
+          - bash-version: "5.2"
+            bash-commit: 74091dd4e8086db518b30df7f222691524469998
+          - bash-version: "5.3"
+            bash-commit: b8c60bc9ca365f8261fa97900b6fa939f6ebc303
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read the Bash floor the README claims
+        id: floor
+        env:
+          BASH_VERSION_UNDER_TEST: ${{ matrix.bash-version }}
+        run: |
+          set -euo pipefail;
+          stated_floor="$(grep -oiE '\bbash [0-9]+(\.[0-9]+)? or (newer|later)\b' README.md | head -1 | grep -oE '[0-9]+(\.[0-9]+)?' || true)";
+          if [ -z "${stated_floor}" ]; then
+            echo "::error title=No Bash floor stated::README.md does not state \"Bash X.Y or newer\". There is no claim for this workflow to test.";
+            exit 1;
+          fi;
+          lower_version="$(printf '%s\n%s\n' "${stated_floor}" "${BASH_VERSION_UNDER_TEST}" | sort -V | head -1)";
+          if [ "${lower_version}" = "${stated_floor}" ]; then
+            in_scope="true";
+            echo "README states Bash ${stated_floor} or newer. Bash ${BASH_VERSION_UNDER_TEST} is in scope and must pass.";
+          else
+            in_scope="false";
+            echo "README states Bash ${stated_floor} or newer. Bash ${BASH_VERSION_UNDER_TEST} is below that floor and is not run.";
+            echo "Bash ${BASH_VERSION_UNDER_TEST}: below the stated floor of ${stated_floor}, not run" >> "${GITHUB_STEP_SUMMARY}";
+          fi;
+          echo "in_scope=${in_scope}" >> "${GITHUB_OUTPUT}";
+
+      - name: Install build tools and bats
+        if: steps.floor.outputs.in_scope == 'true'
+        run: |
+          set -euo pipefail;
+          sudo apt-get update -q;
+          sudo apt-get install -y -q build-essential bison bats;
+          bats --version;
+
+      - name: Build Bash ${{ matrix.bash-version }} from its pinned release commit
+        if: steps.floor.outputs.in_scope == 'true'
+        env:
+          BASH_VERSION_UNDER_TEST: ${{ matrix.bash-version }}
+          BASH_RELEASE_COMMIT: ${{ matrix.bash-commit }}
+        run: |
+          set -euo pipefail;
+          source_directory="${RUNNER_TEMP}/bash_source";
+          install_prefix="${RUNNER_TEMP}/bash_${BASH_VERSION_UNDER_TEST}";
+          mkdir -p "${source_directory}";
+          git -C "${source_directory}" init -q;
+          git -C "${source_directory}" fetch -q --depth 1 https://github.com/tianon/mirror-bash "${BASH_RELEASE_COMMIT}";
+          git -C "${source_directory}" checkout -q FETCH_HEAD;
+          fetched_commit="$(git -C "${source_directory}" rev-parse HEAD)";
+          if [ "${fetched_commit}" != "${BASH_RELEASE_COMMIT}" ]; then
+            echo "::error title=Source mismatch::fetched ${fetched_commit}, pinned ${BASH_RELEASE_COMMIT}";
+            exit 1;
+          fi;
+          cd "${source_directory}";
+          CFLAGS="-O1 -std=gnu89 -Wno-implicit-function-declaration -Wno-implicit-int -Wno-incompatible-pointer-types -Wno-int-conversion" \
+            ./configure -q --prefix="${install_prefix}" --without-bash-malloc --disable-nls > "${RUNNER_TEMP}/configure.log" 2>&1 \
+            || { tail -40 "${RUNNER_TEMP}/configure.log"; exit 1; };
+          make -s -j"$(nproc)" > "${RUNNER_TEMP}/make.log" 2>&1 || { tail -40 "${RUNNER_TEMP}/make.log"; exit 1; };
+          make -s install > /dev/null;
+          echo "${install_prefix}/bin" >> "${GITHUB_PATH}";
+
+      - name: Confirm Bash ${{ matrix.bash-version }} is the Bash that answers
+        if: steps.floor.outputs.in_scope == 'true'
+        env:
+          BASH_VERSION_UNDER_TEST: ${{ matrix.bash-version }}
+        run: |
+          set -euo pipefail;
+          answering_version="$(bash -c 'echo "${BASH_VERSION}"')";
+          environment_version="$(env bash -c 'echo "${BASH_VERSION}"')";
+          echo "bash answers ${answering_version}; env bash answers ${environment_version}";
+          case "${answering_version}|${environment_version}" in
+            "${BASH_VERSION_UNDER_TEST}".*"|${BASH_VERSION_UNDER_TEST}".*)
+              ;;
+            *)
+              echo "::error title=Wrong Bash::expected ${BASH_VERSION_UNDER_TEST}, got ${answering_version} and ${environment_version}";
+              exit 1;
+              ;;
+          esac;
+
+      - name: Run the declared test entry point under Bash ${{ matrix.bash-version }}
+        if: steps.floor.outputs.in_scope == 'true'
+        env:
+          TESTS_EXECUTED_FILE: ${{ runner.temp }}/tests_executed.tsv
+        run: |
+          set -euo pipefail;
+          if [ ! -f test/run_all_tests.sh ]; then
+            echo "::error title=No tests declared::test/run_all_tests.sh is missing.";
+            exit 1;
+          fi;
+          bash test/run_all_tests.sh;
+
+      - name: Require that tests actually ran
+        if: steps.floor.outputs.in_scope == 'true'
+        env:
+          TESTS_EXECUTED_FILE: ${{ runner.temp }}/tests_executed.tsv
+          BASH_VERSION_UNDER_TEST: ${{ matrix.bash-version }}
+        run: |
+          set -euo pipefail;
+          if [ ! -s "${TESTS_EXECUTED_FILE}" ]; then
+            echo "::error title=No test count reported::The harness exited 0 but reported no executed tests.";
+            exit 1;
+          fi;
+          awk -F '\t' -v summary="${GITHUB_STEP_SUMMARY}" -v version="${BASH_VERSION_UNDER_TEST}" '
+            NF != 2 || $2 !~ /^[0-9]+$/ { malformed = 1; print "malformed line " NR ": " $0; next; }
+            { total += $2; }
+            END {
+              if (malformed) { print "::error title=Malformed test count::see the lines above"; exit 1; }
+              if (total == 0) { print "::error title=Zero tests executed::every suite reported a count of zero"; exit 1; }
+              printf "Bash %s: %d tests executed, all passed\n", version, total;
+              printf "Bash %s: %d tests executed, all passed\n", version, total >> summary;
+            }' "${TESTS_EXECUTED_FILE}";
