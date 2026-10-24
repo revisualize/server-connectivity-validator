@@ -9,6 +9,8 @@
 [![content-policy](https://github.com/revisualize/server-connectivity-validator/actions/workflows/content-policy.yml/badge.svg)](https://github.com/revisualize/server-connectivity-validator/actions/workflows/content-policy.yml)
 [![license: all rights reserved](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)](LICENSE)
 
+**Project page:** [revisualized.com/projects/server-connectivity-validator](https://revisualized.com/projects/server-connectivity-validator)
+
 "Is the server up" is several different questions wearing one trenchcoat. A host can answer ping while its application port is firewalled, accept TCP connections while the application behind them is hung, export an NFS path no client can mount, and advertise an SMB share that rejects every authentication.
 
 This validator tests the whole ladder, in order, so a failure arrives pre-localized. Which layer broke is already known before anyone opens a terminal.
