@@ -89,8 +89,8 @@ Each badge above is its own GitHub Actions workflow in `.github/workflows/`. Eve
 
 | Workflow | A green badge means |
 |---|---|
-| [`ci`](https://github.com/revisualize/server-connectivity-validator/actions/workflows/ci.yml) | `bash test/run_all_tests.sh` passed on Python 3.9 and 3.12 and reported a non-zero count of executed tests, and shellcheck found nothing at style severity. |
-| [`test`](https://github.com/revisualize/server-connectivity-validator/actions/workflows/test.yml) | `bash test/run_all_tests.sh` passed on Python 3.9 and 3.12. The run fails if any suite fails or if zero tests executed, and the job summary lists each suite with its test count. |
+| [`ci`](https://github.com/revisualize/server-connectivity-validator/actions/workflows/ci.yml) | `bash test/run_all_tests.sh` passed in both jobs of the shared workflow matrix (Python 3.9 and 3.12; this tool itself uses no Python) and reported a non-zero count of executed tests, and shellcheck found nothing at style severity. |
+| [`test`](https://github.com/revisualize/server-connectivity-validator/actions/workflows/test.yml) | `bash test/run_all_tests.sh` passed in both jobs of the shared workflow matrix (Python 3.9 and 3.12; this tool itself uses no Python). The run fails if any suite fails or if zero tests executed, and the job summary lists each suite with its test count. |
 | [`shellcheck`](https://github.com/revisualize/server-connectivity-validator/actions/workflows/shellcheck.yml) | Every shell script outside `test/fixtures/` parses with `bash -n` and has no shellcheck findings at style severity. |
 | [`bash-compat`](https://github.com/revisualize/server-connectivity-validator/actions/workflows/bash-compat.yml) | The test suite passed under every Bash release from the floor stated in Requirements through 5.3, each built from its release source. |
 | [`markdown-lint`](https://github.com/revisualize/server-connectivity-validator/actions/workflows/markdown-lint.yml) | Every Markdown file passes markdownlint. |
