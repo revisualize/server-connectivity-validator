@@ -9,8 +9,8 @@
 #               path tests, counts consecutive failures per check, and
 #               alerts once per incident with a recovery notice.
 # Status:       tested
-# Revision:     5
-# Updated:      2026-11-06
+# Revision:     6
+# Updated:      2026-11-07
 # Requires:     Bash 4.2 or newer, GNU coreutils, awk, nc, curl,
 #               flock, and a mail command. ping for ICMP, showmount for
 #               NFS, mount, umount, and mountpoint for the NFS mount
@@ -378,7 +378,9 @@ required_commands() {
 }
 
 # prepare_state_paths
-# Creates the state directory with mode 0700 and refuses paths another
+# Creates the state directory, mode 0700 because main sets umask 077
+# first (mkdir -m would apply only to the deepest directory), then
+# checks the mode, and refuses paths another
 # account could use to redirect the tool's writes: a symlinked state
 # directory, log file, or lock file, a state directory this account does
 # not own, and a state directory writable by group or others.
@@ -396,7 +398,7 @@ prepare_state_paths() {
         printf 'FAIL: state directory %s is a symlink\n' "${state_directory}" >&2
         return 1
     fi
-    if ! mkdir -p -m 700 "${state_directory}" 2> /dev/null || [ ! -d "${state_directory}" ]; then
+    if ! mkdir -p "${state_directory}" 2> /dev/null || [ ! -d "${state_directory}" ]; then
         printf 'FAIL: cannot create state directory %s\n' "${state_directory}" >&2
         return 1
     fi
