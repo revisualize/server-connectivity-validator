@@ -9,7 +9,7 @@
 #               path tests, counts consecutive failures per check, and
 #               alerts once per incident with a recovery notice.
 # Status:       tested
-# Revision:     6
+# Revision:     7
 # Updated:      2026-11-07
 # Requires:     Bash 4.2 or newer, GNU coreutils, awk, nc, curl,
 #               flock, and a mail command. ping for ICMP, showmount for
@@ -225,11 +225,14 @@ is_valid_ipv4_literal() {
 # count_ipv6_groups <part>
 # Prints how many groups a colon-separated part holds, each 1 to 4 hex
 # digits. Returns 1 for an empty group or a leading or trailing colon.
+# The part is split with parameter expansion, not read with a
+# here-string, because Bash before 4.4 word-splits a here-string using
+# the temporary IFS, which turns 2001:db8 into one group.
 count_ipv6_groups() {
     local ipv6_part="${1}"
     local ipv6_group
     local ipv6_group_count=0
-    local -a ipv6_groups
+    local ipv6_remaining
     if [ -z "${ipv6_part}" ]; then
         printf '0'
         return 0
@@ -237,8 +240,10 @@ count_ipv6_groups() {
     if [[ "${ipv6_part}" == :* ]] || [[ "${ipv6_part}" == *: ]] || [[ "${ipv6_part}" == *::* ]]; then
         return 1
     fi
-    IFS=':' read -ra ipv6_groups <<< "${ipv6_part}"
-    for ipv6_group in "${ipv6_groups[@]}"; do
+    ipv6_remaining="${ipv6_part}:"
+    while [ -n "${ipv6_remaining}" ]; do
+        ipv6_group="${ipv6_remaining%%:*}"
+        ipv6_remaining="${ipv6_remaining#*:}"
         [[ "${ipv6_group}" =~ ^[0-9A-Fa-f]{1,4}$ ]] || return 1
         ipv6_group_count=$((ipv6_group_count + 1))
     done
