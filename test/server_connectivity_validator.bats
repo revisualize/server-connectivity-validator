@@ -10,8 +10,8 @@
 #               handling, deadlines, and cleanup of the SMTP and NFS
 #               checks.
 # Status:       tested
-# Revision:     4
-# Updated:      2026-11-06
+# Revision:     5
+# Updated:      2026-11-07
 # Requires:     bats, bash 4.2 or newer
 # Included by:  .github/workflows/ci.yml
 # Provides:     test coverage for server_connectivity_validator.sh
@@ -792,8 +792,12 @@ fail_n_times() {
   done
   disable_every_check
   enable_nfs_export_check="true"
+  # Restore PATH straight after the run: bats needs rm and other tools
+  # for its own cleanup, and a stub-only PATH fails the whole suite.
+  local saved_path="${PATH}"
   PATH="${WORK}/bin"
   run main
+  PATH="${saved_path}"
   [ "${status}" -eq 2 ]
   [[ "${output}" == *"missing required command(s): showmount"* ]]
 }
